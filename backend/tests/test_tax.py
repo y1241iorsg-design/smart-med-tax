@@ -43,7 +43,7 @@ def test_non_qualified_not_counted(client):
 
 def test_export_csv_returns_file(client):
     _add(client, "4987117709559", 980, "2026-05-01")
-    resp = client.get("/api/tax/export?year=2026&format=csv")
+    resp = client.get("/api/tax/export?year=2026&fmt=csv")
     assert resp.status_code == 200
     assert "text/csv" in resp.headers["content-type"]
     content = resp.content.decode("utf-8-sig")
@@ -53,7 +53,7 @@ def test_export_csv_returns_file(client):
 
 def test_export_xml_returns_file(client):
     _add(client, "4987117709559", 980, "2026-05-01")
-    resp = client.get("/api/tax/export?year=2026&format=xml")
+    resp = client.get("/api/tax/export?year=2026&fmt=xml")
     assert resp.status_code == 200
     assert "xml" in resp.headers["content-type"]
     content = resp.content.decode("utf-8")
@@ -62,5 +62,14 @@ def test_export_xml_returns_file(client):
 
 
 def test_export_invalid_format_returns_400(client):
-    resp = client.get("/api/tax/export?year=2026&format=pdf")
+    resp = client.get("/api/tax/export?year=2026&fmt=pdf")
     assert resp.status_code == 400
+
+
+def test_summary_at_exact_threshold_not_qualified(client):
+    _add(client, "4987117709559", 12000, "2026-01-01")  # exactly ¥12,000
+    resp = client.get("/api/tax/summary?year=2026")
+    data = resp.json()
+    assert data["total_qualified"] == 12000
+    assert data["is_qualified"] is False   # must EXCEED 12000, not just equal it
+    assert data["deductible_amount"] == 0

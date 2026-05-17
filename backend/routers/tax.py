@@ -27,15 +27,15 @@ def tax_summary(year: int, db: sqlite3.Connection = Depends(get_db)):
         "total_qualified": total,
         "deductible_amount": deductible,
         "threshold": THRESHOLD,
-        "is_qualified": total >= THRESHOLD,
+        "is_qualified": total > THRESHOLD,
     }
 
 
 @router.get("/tax/export")
 def tax_export(
-    year: int, format: str, db: sqlite3.Connection = Depends(get_db)
+    year: int, fmt: str, db: sqlite3.Connection = Depends(get_db)
 ):
-    if format not in ("csv", "xml"):
+    if fmt not in ("csv", "xml"):
         raise HTTPException(status_code=400, detail="format must be csv or xml")
 
     rows = db.execute(
@@ -46,7 +46,7 @@ def tax_export(
         [str(year)],
     ).fetchall()
 
-    if format == "csv":
+    if fmt == "csv":
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["購入日", "商品名", "一般名", "金額", "数量", "小計", "税制対象"])

@@ -23,6 +23,26 @@ def test_add_purchase_unknown_jan_returns_404(client):
     assert resp.status_code == 404
 
 
+def test_add_purchase_with_invalid_price_returns_422(client):
+    resp = client.post("/api/purchases", json={
+        "jan_code": "4987117709559",
+        "price": 0,
+        "quantity": 1,
+        "purchased_at": "2026-05-13"
+    })
+    assert resp.status_code == 422
+
+
+def test_add_purchase_negative_quantity_rejected(client):
+    resp = client.post("/api/purchases", json={
+        "jan_code": "4987117709559",
+        "price": 980,
+        "quantity": -1,
+        "purchased_at": "2026-05-13"
+    })
+    assert resp.status_code == 422
+
+
 def test_list_purchases_filters_by_year(client):
     # Add purchases in different years
     client.post("/api/purchases", json={

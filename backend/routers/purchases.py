@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from db import get_db
 
 router = APIRouter()
@@ -9,8 +9,8 @@ router = APIRouter()
 
 class PurchaseCreate(BaseModel):
     jan_code: str
-    price: int
-    quantity: int = 1
+    price: int = Field(ge=1)
+    quantity: int = Field(ge=1, le=999)
     purchased_at: date
     store_name: str | None = None
 

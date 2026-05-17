@@ -2,3 +2,5 @@
 .env
 backend/data/medtax.db
 frontend/.env.local
+__pycache__/
+*.pyc
