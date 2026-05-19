@@ -1,19 +1,23 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getTaxSummary, type TaxSummary } from "@/lib/api";
+import { getTaxSummary, getInventory, type TaxSummary, type InventoryItem } from "@/lib/api";
 
 const THRESHOLD = 12_000;
 const YEAR = new Date().getFullYear();
 
 export default function HomePage() {
   const [summary, setSummary] = useState<TaxSummary | null>(null);
+  const [lowStock, setLowStock] = useState<InventoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getTaxSummary(YEAR)
       .then(setSummary)
       .catch((e: Error) => setError(e.message));
+    getInventory()
+      .then((items) => setLowStock(items.filter((i) => i.is_low_stock)))
+      .catch(() => {});
   }, []);
 
   const total = summary?.total_qualified ?? 0;
@@ -61,6 +65,17 @@ export default function HomePage() {
           {THRESHOLD.toLocaleString()}）
         </p>
       </div>
+
+      {lowStock.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4" data-testid="low-stock-alert">
+          <p className="text-xs font-bold text-amber-700 mb-2">⚠️ 在庫わずか</p>
+          {lowStock.map((item) => (
+            <p key={item.jan_code} className="text-sm text-amber-800">
+              {item.product_name}（残り {item.remaining_doses} 錠）
+            </p>
+          ))}
+        </div>
+      )}
 
       <Link
         href="/scan"

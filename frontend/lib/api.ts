@@ -71,9 +71,44 @@ export async function getTaxSummary(year: number): Promise<TaxSummary> {
   return res.json();
 }
 
-export function getTaxExportUrl(
-  year: number,
-  format: "csv" | "xml"
-): string {
-  return `${API_BASE}/api/tax/export?year=${year}&format=${format}`;
+export function getTaxExportUrl(year: number, format: "csv" | "xml"): string {
+  return `${API_BASE}/api/tax/export?year=${year}&fmt=${format}`;
+}
+
+export type ChatResponse = {
+  reply: string;
+  escalation_level: "ai" | "registered_seller" | "pharmacist";
+  responder_name: string;
+  responder_title: string;
+};
+
+export type InventoryItem = {
+  jan_code: string;
+  product_name: string;
+  category: string;
+  remaining_doses: number;
+  last_purchased_at: string;
+  is_low_stock: boolean;
+};
+
+export async function sendChat(message: string): Promise<ChatResponse> {
+  const res = await fetch(`${API_BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) throw new Error("チャットの送信に失敗しました");
+  return res.json();
+}
+
+export async function getInventory(): Promise<InventoryItem[]> {
+  const res = await fetch(`${API_BASE}/api/inventory`);
+  if (!res.ok) throw new Error("在庫情報の取得に失敗しました");
+  return res.json();
+}
+
+export async function uploadReceipt(): Promise<{ imported: number; date: string; store: string }> {
+  const res = await fetch(`${API_BASE}/api/receipt/upload`, { method: "POST" });
+  if (!res.ok) throw new Error("レシート取込に失敗しました");
+  return res.json();
 }

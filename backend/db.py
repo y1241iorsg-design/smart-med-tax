@@ -27,13 +27,14 @@ def init_db(path: Path | None = None) -> None:
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS purchases (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                jan_code     TEXT NOT NULL REFERENCES products(jan_code),
-                price        INTEGER NOT NULL,
-                quantity     INTEGER NOT NULL DEFAULT 1,
-                purchased_at DATE NOT NULL,
-                store_name   TEXT,
-                created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                jan_code        TEXT NOT NULL REFERENCES products(jan_code),
+                price           INTEGER NOT NULL,
+                quantity        INTEGER NOT NULL DEFAULT 1,
+                purchased_at    DATE NOT NULL,
+                store_name      TEXT,
+                remaining_doses INTEGER,
+                created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
         _seed_products(conn)
