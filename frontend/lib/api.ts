@@ -112,3 +112,21 @@ export async function uploadReceipt(): Promise<{ imported: number; date: string;
   if (!res.ok) throw new Error("レシート取込に失敗しました");
   return res.json();
 }
+
+export type SymptomRecommendation = {
+  reply: string;
+  past_purchases_used: string[];
+};
+
+export async function getRecommendation(
+  symptoms: string[],
+  filters: string[]
+): Promise<SymptomRecommendation> {
+  const res = await fetch(`${API_BASE}/api/symptom/recommend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symptoms, filters }),
+  });
+  if (!res.ok) throw new Error("おすすめ薬の取得に失敗しました");
+  return res.json();
+}

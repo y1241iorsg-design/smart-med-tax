@@ -18,12 +18,15 @@ SYSTEM_PROMPT = """あなたは日本のドラッグストアのAI薬剤アシ�
 
 def ask_gemini(user_message: str) -> str:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key:
+    if not api_key or api_key == "your_api_key_here":
         return _MOCK_RESPONSE
 
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=f"{SYSTEM_PROMPT}\n\nユーザー: {user_message}",
-    )
-    return response.text or _MOCK_RESPONSE
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-lite",
+            contents=f"{SYSTEM_PROMPT}\n\nユーザー: {user_message}",
+        )
+        return response.text or _MOCK_RESPONSE
+    except Exception:
+        return _MOCK_RESPONSE

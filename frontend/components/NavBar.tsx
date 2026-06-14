@@ -3,11 +3,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "ホーム", icon: "🏠" },
-  { href: "/scan", label: "スキャン", icon: "📷" },
-  { href: "/chat", label: "相談", icon: "💬" },
-  { href: "/history", label: "履歴", icon: "📋" },
-  { href: "/tax", label: "税制", icon: "📊" },
+  { href: "/",        label: "ホーム",   icon: "🏠" },
+  { href: "/symptom", label: "症状",     icon: "🔍" },
+  { href: "/scan",    label: "スキャン", icon: "📷" },
+  { href: "/chat",    label: "相談",     icon: "💬" },
+  { href: "/history", label: "履歴",     icon: "📋" },
+  { href: "/tax",     label: "税制",     icon: "📊" },
 ] as const;
 
 export default function NavBar() {
