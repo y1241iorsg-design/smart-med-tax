@@ -1,4 +1,5 @@
 .superpowers/
+.worktrees/
 .env
 backend/data/medtax.db
 frontend/.env.local
