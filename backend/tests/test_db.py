@@ -50,3 +50,21 @@ def test_reinit_does_not_duplicate_or_break_existing_purchases(tmp_path):
     rows = conn.execute("SELECT * FROM purchases").fetchall()
     assert len(rows) == 1
     conn.close()
+
+
+def test_family_members_table_exists_and_seeds_self(tmp_path):
+    path = tmp_path / "test.db"
+    init_db(path)
+    conn = get_connection(path)
+    rows = conn.execute("SELECT name FROM family_members").fetchall()
+    assert any(r["name"] == "自分" for r in rows)
+    conn.close()
+
+
+def test_purchases_table_has_followup_and_family_columns(tmp_path):
+    path = tmp_path / "test.db"
+    init_db(path)
+    conn = get_connection(path)
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(purchases)")}
+    assert {"family_member_name", "follow_up_status", "follow_up_date"} <= cols
+    conn.close()

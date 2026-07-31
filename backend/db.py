@@ -53,6 +53,17 @@ def init_db(path: Path | None = None) -> None:
                 url        TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS family_members (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                name                 TEXT NOT NULL UNIQUE,
+                relationship         TEXT,
+                conditions           TEXT NOT NULL DEFAULT '[]',
+                current_medications  TEXT NOT NULL DEFAULT '[]',
+                allergies            TEXT NOT NULL DEFAULT '[]',
+                created_at           DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
         # 4.2/4.3向けに追加した列(既存DBに対する後方互換マイグレーション)
         _ensure_column(conn, "products", "dosage", "dosage TEXT NOT NULL DEFAULT ''")
@@ -62,9 +73,13 @@ def init_db(path: Path | None = None) -> None:
         _ensure_column(conn, "products", "price", "price INTEGER NOT NULL DEFAULT 0")
         _ensure_column(conn, "purchases", "purpose", "purpose TEXT")
         _ensure_column(conn, "purchases", "memo", "memo TEXT")
+        _ensure_column(conn, "purchases", "family_member_name", "family_member_name TEXT NOT NULL DEFAULT '自分'")
+        _ensure_column(conn, "purchases", "follow_up_status", "follow_up_status TEXT NOT NULL DEFAULT '未入力'")
+        _ensure_column(conn, "purchases", "follow_up_date", "follow_up_date DATE")
 
         _seed_products(conn)
         _seed_vendors(conn)
+        _seed_family_self(conn)
 
 
 def _seed_products(conn: sqlite3.Connection) -> None:
@@ -111,6 +126,17 @@ def _seed_vendors(conn: sqlite3.Connection) -> None:
             for v in generate_vendor_listings(MOCK_PRODUCTS)
         ],
     )
+
+
+def _seed_family_self(conn: sqlite3.Connection) -> None:
+    row = conn.execute(
+        "SELECT id FROM family_members WHERE name = ?", ["自分"]
+    ).fetchone()
+    if row is None:
+        conn.execute(
+            "INSERT INTO family_members (name, relationship, conditions, current_medications, allergies) "
+            "VALUES ('自分', '本人', '[]', '[]', '[]')"
+        )
 
 
 def get_db():
