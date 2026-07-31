@@ -95,3 +95,74 @@ def test_list_purchases_includes_purpose_and_memo(client):
     )
     res = client.get("/api/purchases?year=2026")
     assert res.json()[0]["purpose"] == "頭痛のため"
+
+
+def _add(client, **overrides):
+    payload = {
+        "jan_code": "4987117709559",
+        "price": 980,
+        "quantity": 1,
+        "purchased_at": "2026-07-31",
+    }
+    payload.update(overrides)
+    return client.post("/api/purchases", json=payload).json()
+
+
+def test_list_purchases_includes_category_and_followup_fields(client):
+    _add(client)
+    item = client.get("/api/purchases?year=2026").json()[0]
+    assert "category" in item
+    assert item["family_member_name"] == "自分"
+    assert item["follow_up_status"] == "未入力"
+
+
+def test_add_purchase_with_family_member_name(client):
+    body = _add(client, family_member_name="母")
+    assert body["family_member_name"] == "母"
+
+
+def test_patch_purchase(client):
+    created = _add(client)
+    res = client.patch(f"/api/purchases/{created['id']}", json={
+        "price": 1200,
+        "quantity": 2,
+        "purchased_at": "2026-07-30",
+        "store_name": "ウエルシア",
+        "purpose": "頭痛",
+        "memo": "メモ",
+        "family_member_name": "母",
+    })
+    assert res.status_code == 200
+    assert res.json()["price"] == 1200
+    assert res.json()["family_member_name"] == "母"
+
+
+def test_delete_purchase(client):
+    created = _add(client)
+    res = client.delete(f"/api/purchases/{created['id']}")
+    assert res.status_code == 200
+    assert client.get("/api/purchases?year=2026").json() == []
+
+
+def test_follow_up_worsened_recommends_visit(client):
+    created = _add(client)
+    res = client.patch(f"/api/purchases/{created['id']}/follow-up", json={"status": "悪化"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["recommend_medical_visit"] is True
+    assert "医療機関" in body["message"]
+    assert "診断" in body["message"]
+    assert body["follow_up_status"] == "悪化"
+
+
+def test_follow_up_improved_does_not_recommend_visit(client):
+    created = _add(client)
+    res = client.patch(f"/api/purchases/{created['id']}/follow-up", json={"status": "改善"})
+    assert res.status_code == 200
+    assert res.json()["recommend_medical_visit"] is False
+
+
+def test_follow_up_invalid_status_returns_422(client):
+    created = _add(client)
+    res = client.patch(f"/api/purchases/{created['id']}/follow-up", json={"status": "不明"})
+    assert res.status_code == 422
