@@ -21,6 +21,7 @@ export type Purchase = {
   id: number;
   jan_code: string;
   product_name: string;
+  category: string;
   price: number;
   quantity: number;
   purchased_at: string;
@@ -28,6 +29,9 @@ export type Purchase = {
   purpose: string | null;
   memo: string | null;
   is_qualified: number;
+  family_member_name: string;
+  follow_up_status: string;
+  follow_up_date: string | null;
 };
 
 export type TaxSummary = {
@@ -58,6 +62,7 @@ export async function addPurchase(data: {
   store_name?: string;
   purpose?: string;
   memo?: string;
+  family_member_name?: string;
 }): Promise<Purchase> {
   const res = await fetch(`${API_BASE}/api/purchases`, {
     method: "POST",
@@ -195,6 +200,113 @@ export async function checkInteractions(janCodes: string[]): Promise<Interaction
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? "飲み合わせチェックに失敗しました");
+  }
+  return res.json();
+}
+
+export type FamilyMember = {
+  id: number;
+  name: string;
+  relationship: string | null;
+  conditions: string[];
+  current_medications: string[];
+  allergies: string[];
+};
+
+export async function getFamily(): Promise<FamilyMember[]> {
+  const res = await fetch(`${API_BASE}/api/family`);
+  if (!res.ok) throw new Error("家族情報の取得に失敗しました");
+  return res.json();
+}
+
+export async function createFamilyMember(
+  data: Omit<FamilyMember, "id">
+): Promise<FamilyMember> {
+  const res = await fetch(`${API_BASE}/api/family`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "家族の追加に失敗しました");
+  }
+  return res.json();
+}
+
+export async function updateFamilyMember(
+  id: number,
+  data: Omit<FamilyMember, "id">
+): Promise<FamilyMember> {
+  const res = await fetch(`${API_BASE}/api/family/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "家族の更新に失敗しました");
+  }
+  return res.json();
+}
+
+export async function deleteFamilyMember(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/family/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "家族の削除に失敗しました");
+  }
+}
+
+export async function updatePurchase(
+  id: number,
+  data: {
+    price: number;
+    quantity: number;
+    purchased_at: string;
+    store_name?: string;
+    purpose?: string;
+    memo?: string;
+    family_member_name: string;
+  }
+): Promise<Purchase> {
+  const res = await fetch(`${API_BASE}/api/purchases/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "更新に失敗しました");
+  }
+  return res.json();
+}
+
+export async function deletePurchase(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/purchases/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("削除に失敗しました");
+}
+
+export type FollowUpResult = {
+  id: number;
+  follow_up_status: string;
+  follow_up_date: string;
+  recommend_medical_visit: boolean;
+  message: string;
+};
+
+export async function submitFollowUp(
+  id: number,
+  status: "改善" | "変化なし" | "悪化"
+): Promise<FollowUpResult> {
+  const res = await fetch(`${API_BASE}/api/purchases/${id}/follow-up`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "経過の更新に失敗しました");
   }
   return res.json();
 }
