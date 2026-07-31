@@ -14,6 +14,8 @@ class PurchaseCreate(BaseModel):
     purchased_at: date
     store_name: str | None = None
     remaining_doses: int | None = Field(default=None, ge=0)
+    purpose: str | None = None
+    memo: str | None = None
 
 
 @router.post("/purchases")
@@ -27,10 +29,11 @@ def add_purchase(
         raise HTTPException(status_code=404, detail="商品が見つかりません")
 
     cursor = db.execute(
-        "INSERT INTO purchases (jan_code, price, quantity, purchased_at, store_name, remaining_doses) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        [body.jan_code, body.price, body.quantity,
-         body.purchased_at.isoformat(), body.store_name, body.remaining_doses],
+        "INSERT INTO purchases "
+        "(jan_code, price, quantity, purchased_at, store_name, remaining_doses, purpose, memo) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [body.jan_code, body.price, body.quantity, body.purchased_at.isoformat(),
+         body.store_name, body.remaining_doses, body.purpose, body.memo],
     )
     db.commit()
 

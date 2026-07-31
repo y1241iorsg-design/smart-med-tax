@@ -82,6 +82,11 @@ export default function TaxPage() {
             <p className="text-xs text-gray-400 text-center">
               ※ ¥{summary.threshold.toLocaleString()}超で（合計額 − ¥
               {summary.threshold.toLocaleString()}）が控除対象
+              {summary.cap_applied && (
+                <span className="block mt-1 text-amber-600">
+                  ※ 控除上限 ¥{summary.deduction_cap.toLocaleString()} を適用
+                </span>
+              )}
             </p>
           </div>
 

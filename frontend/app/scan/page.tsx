@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { lookupJan, addPurchase, type Product } from "@/lib/api";
+import BarcodeScanner from "@/components/BarcodeScanner";
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -10,6 +11,8 @@ export default function ScanPage() {
   const [price, setPrice] = useState("");
   const [purchasedAt, setPurchasedAt] = useState(today());
   const [storeName, setStoreName] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [memo, setMemo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,12 +41,16 @@ export default function ScanPage() {
         quantity: 1,
         purchased_at: purchasedAt,
         store_name: storeName || undefined,
+        purpose: purpose || undefined,
+        memo: memo || undefined,
       });
       setSuccess(true);
       setJanCode("");
       setProduct(null);
       setPrice("");
       setStoreName("");
+      setPurpose("");
+      setMemo("");
       setPurchasedAt(today());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "追加に失敗しました");
@@ -73,6 +80,21 @@ export default function ScanPage() {
           {error}
         </div>
       )}
+
+      <BarcodeScanner
+        onScan={(code) => {
+          setJanCode(code);
+          setError(null);
+          setProduct(null);
+          setSuccess(false);
+          lookupJan(code)
+            .then(setProduct)
+            .catch((e: unknown) =>
+              setError(e instanceof Error ? e.message : "検索に失敗しました")
+            );
+        }}
+        onError={setError}
+      />
 
       <div className="bg-white rounded-xl shadow p-6 mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -150,7 +172,7 @@ export default function ScanPage() {
             </div>
           </div>
 
-          <div className="mb-4">
+          <div className="mb-3">
             <label className="block text-xs text-gray-500 mb-1">
               店舗名（任意）
             </label>
@@ -160,6 +182,32 @@ export default function ScanPage() {
               onChange={(e) => setStoreName(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               placeholder="マツキヨ渋谷店"
+            />
+          </div>
+
+          <div className="mb-3">
+            <label className="block text-xs text-gray-500 mb-1">
+              使用目的（任意）
+            </label>
+            <input
+              type="text"
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              placeholder="例: 頭痛のため"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              data-testid="purpose-input"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1">
+              メモ（任意）
+            </label>
+            <textarea
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              data-testid="memo-input"
             />
           </div>
 

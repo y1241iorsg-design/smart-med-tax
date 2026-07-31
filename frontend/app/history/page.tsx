@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getPurchases, type Purchase } from "@/lib/api";
+import { getPurchases, checkInteractions, type Purchase, type InteractionCheckResult } from "@/lib/api";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
@@ -10,6 +10,8 @@ export default function HistoryPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [qualifiedOnly, setQualifiedOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [interactionResult, setInteractionResult] = useState<InteractionCheckResult | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     setError(null);
@@ -21,6 +23,23 @@ export default function HistoryPage() {
   const displayed = qualifiedOnly
     ? purchases.filter((p) => p.is_qualified)
     : purchases;
+
+  async function handleInteractionCheck() {
+    const codes = [...new Set(purchases.map((p) => p.jan_code))];
+    if (codes.length < 2) {
+      setError("飲み合わせチェックには2件以上の購入記録が必要です");
+      return;
+    }
+    setChecking(true);
+    setError(null);
+    try {
+      setInteractionResult(await checkInteractions(codes));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "チェックに失敗しました");
+    } finally {
+      setChecking(false);
+    }
+  }
 
   return (
     <main className="max-w-md mx-auto px-4 py-8 pb-24">
@@ -50,6 +69,41 @@ export default function HistoryPage() {
         </label>
       </div>
 
+      {purchases.length >= 2 && (
+        <button
+          onClick={handleInteractionCheck}
+          disabled={checking}
+          className="w-full bg-amber-500 text-white py-3 rounded-xl font-semibold text-sm mb-4 disabled:opacity-50"
+          data-testid="interaction-check-button"
+        >
+          {checking ? "チェック中..." : "⚠ 飲み合わせ・成分重複をチェック"}
+        </button>
+      )}
+
+      {interactionResult && (
+        <div className="bg-white rounded-xl shadow p-4 mb-4 text-sm" data-testid="interaction-result">
+          <p className="font-bold text-gray-900 mb-2">チェック結果</p>
+          <p className="text-xs text-gray-500 mb-3">{interactionResult.disclaimer}</p>
+          {interactionResult.overlaps.length > 0 ? (
+            <ul className="space-y-2 mb-3">
+              {interactionResult.overlaps.map((o) => (
+                <li key={o.ingredient} className="text-amber-700 bg-amber-50 rounded p-2 text-xs">
+                  成分「{o.ingredient}」が重複: {o.product_names.join("、")}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-600 mb-3">成分名の重複は検出されませんでした。</p>
+          )}
+          {interactionResult.precaution_notes.map((n) => (
+            <div key={n.product_name} className="border-t border-gray-100 pt-2 mt-2">
+              <p className="font-medium text-xs">{n.product_name}</p>
+              <p className="text-xs text-gray-500 mt-1">{n.precautions}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {error && (
         <div className="bg-red-100 text-red-700 rounded-xl p-3 mb-4 text-sm">
           {error}
@@ -78,6 +132,16 @@ export default function HistoryPage() {
                   {p.purchased_at}
                   {p.store_name ? ` · ${p.store_name}` : ""}
                 </p>
+                {p.purpose && (
+                  <p className="text-xs text-indigo-500 mt-0.5" data-testid="purchase-purpose">
+                    目的: {p.purpose}
+                  </p>
+                )}
+                {p.memo && (
+                  <p className="text-xs text-gray-400 mt-0.5" data-testid="purchase-memo">
+                    {p.memo}
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <p className="font-semibold text-amber-600 text-sm">

@@ -62,3 +62,36 @@ def test_list_purchases_filters_by_year(client):
     items = resp.json()
     assert len(items) == 1
     assert items[0]["purchased_at"] == "2026-03-10"
+
+
+def test_add_purchase_persists_purpose_and_memo(client):
+    res = client.post(
+        "/api/purchases",
+        json={
+            "jan_code": "4987117709559",
+            "price": 980,
+            "quantity": 1,
+            "purchased_at": "2026-07-30",
+            "purpose": "頭痛のため",
+            "memo": "効果があった",
+        },
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["purpose"] == "頭痛のため"
+    assert body["memo"] == "効果があった"
+
+
+def test_list_purchases_includes_purpose_and_memo(client):
+    client.post(
+        "/api/purchases",
+        json={
+            "jan_code": "4987117709559",
+            "price": 980,
+            "quantity": 1,
+            "purchased_at": "2026-07-30",
+            "purpose": "頭痛のため",
+        },
+    )
+    res = client.get("/api/purchases?year=2026")
+    assert res.json()[0]["purpose"] == "頭痛のため"

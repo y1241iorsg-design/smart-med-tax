@@ -3,12 +3,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/",        label: "ホーム",   icon: "🏠" },
-  { href: "/symptom", label: "症状",     icon: "🔍" },
-  { href: "/scan",    label: "スキャン", icon: "📷" },
-  { href: "/chat",    label: "相談",     icon: "💬" },
-  { href: "/history", label: "履歴",     icon: "📋" },
-  { href: "/tax",     label: "税制",     icon: "📊" },
+  { href: "/chat",       label: "相談" },
+  { href: "/search",     label: "薬を探す" },
+  { href: "/scan",       label: "登録" },
+  { href: "/pharmacies", label: "薬局" },
+  { href: "/history",    label: "履歴" },
 ] as const;
 
 export default function NavBar() {
@@ -20,13 +19,12 @@ export default function NavBar() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex-1 flex flex-col items-center py-3 text-xs gap-0.5 ${
-              pathname === item.href
+            className={`flex-1 flex flex-col items-center py-2.5 text-[10px] gap-0.5 ${
+              pathname === item.href || pathname.startsWith(item.href + "/")
                 ? "text-indigo-600 font-semibold"
                 : "text-gray-500"
             }`}
           >
-            <span className="text-xl leading-none">{item.icon}</span>
             {item.label}
           </Link>
         ))}

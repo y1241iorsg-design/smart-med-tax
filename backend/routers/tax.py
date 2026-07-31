@@ -10,6 +10,7 @@ from db import get_db
 router = APIRouter()
 
 THRESHOLD = 12_000
+DEDUCTION_CAP = 88_000
 
 
 @router.get("/tax/summary")
@@ -21,13 +22,17 @@ def tax_summary(year: int, db: sqlite3.Connection = Depends(get_db)):
         [str(year)],
     ).fetchone()
     total: int = row["total"]
-    deductible = max(0, total - THRESHOLD)
+    raw_deductible = max(0, total - THRESHOLD)
+    deductible = min(raw_deductible, DEDUCTION_CAP)
     return {
         "year": year,
         "total_qualified": total,
         "deductible_amount": deductible,
+        "raw_deductible_amount": raw_deductible,
         "threshold": THRESHOLD,
+        "deduction_cap": DEDUCTION_CAP,
         "is_qualified": total > THRESHOLD,
+        "cap_applied": raw_deductible > DEDUCTION_CAP,
     }
 
 

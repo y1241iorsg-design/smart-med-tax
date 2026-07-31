@@ -10,6 +10,11 @@ export type Product = {
   efficacy: string;
   category: string;
   is_qualified: number; // 1 = qualified, 0 = not qualified
+  dosage: string;
+  side_effects: string;
+  precautions: string;
+  pdf_url: string;
+  price: number;
 };
 
 export type Purchase = {
@@ -20,15 +25,20 @@ export type Purchase = {
   quantity: number;
   purchased_at: string;
   store_name: string | null;
-  is_qualified: number; // 1 = qualified, 0 = not qualified
+  purpose: string | null;
+  memo: string | null;
+  is_qualified: number;
 };
 
 export type TaxSummary = {
   year: number;
   total_qualified: number;
   deductible_amount: number;
+  raw_deductible_amount: number;
   threshold: number;
+  deduction_cap: number;
   is_qualified: boolean;
+  cap_applied: boolean;
 };
 
 export async function lookupJan(code: string): Promise<Product> {
@@ -46,6 +56,8 @@ export async function addPurchase(data: {
   quantity: number;
   purchased_at: string;
   store_name?: string;
+  purpose?: string;
+  memo?: string;
 }): Promise<Purchase> {
   const res = await fetch(`${API_BASE}/api/purchases`, {
     method: "POST",
@@ -75,13 +87,6 @@ export function getTaxExportUrl(year: number, format: "csv" | "xml"): string {
   return `${API_BASE}/api/tax/export?year=${year}&fmt=${format}`;
 }
 
-export type ChatResponse = {
-  reply: string;
-  escalation_level: "ai" | "registered_seller" | "pharmacist";
-  responder_name: string;
-  responder_title: string;
-};
-
 export type InventoryItem = {
   jan_code: string;
   product_name: string;
@@ -90,16 +95,6 @@ export type InventoryItem = {
   last_purchased_at: string;
   is_low_stock: boolean;
 };
-
-export async function sendChat(message: string): Promise<ChatResponse> {
-  const res = await fetch(`${API_BASE}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-  if (!res.ok) throw new Error("チャットの送信に失敗しました");
-  return res.json();
-}
 
 export async function getInventory(): Promise<InventoryItem[]> {
   const res = await fetch(`${API_BASE}/api/inventory`);
@@ -113,20 +108,93 @@ export async function uploadReceipt(): Promise<{ imported: number; date: string;
   return res.json();
 }
 
-export type SymptomRecommendation = {
+// --- 4.1 AIチャット相談 ---
+
+export type ChatTurn = { role: "user" | "assistant"; text: string };
+
+export type ChatApiResponse = {
   reply: string;
-  past_purchases_used: string[];
+  escalate: boolean;
+  ready_for_search: boolean;
+  extracted_symptoms: string[];
 };
 
-export async function getRecommendation(
-  symptoms: string[],
-  filters: string[]
-): Promise<SymptomRecommendation> {
-  const res = await fetch(`${API_BASE}/api/symptom/recommend`, {
+export async function sendChatTurn(history: ChatTurn[]): Promise<ChatApiResponse> {
+  const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symptoms, filters }),
+    body: JSON.stringify({ history }),
   });
-  if (!res.ok) throw new Error("おすすめ薬の取得に失敗しました");
+  if (!res.ok) throw new Error("チャットの送信に失敗しました");
+  return res.json();
+}
+
+// --- 4.2 OTC医薬品レコメンド / 4.3 購入支援 ---
+
+export type ProductSearchResult = Product & { overlap_warning: boolean };
+
+export async function searchProducts(
+  symptoms: string[],
+  filters: string[] = [],
+  currentMeds: string[] = []
+): Promise<ProductSearchResult[]> {
+  const res = await fetch(`${API_BASE}/api/products/search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symptoms, filters, current_meds: currentMeds }),
+  });
+  if (!res.ok) throw new Error("商品検索に失敗しました");
+  return res.json();
+}
+
+export type VendorListing = {
+  store_name: string;
+  price: number;
+  in_stock: boolean;
+  url: string;
+};
+
+export async function getProductVendors(janCode: string): Promise<VendorListing[]> {
+  const res = await fetch(`${API_BASE}/api/products/${janCode}/vendors`);
+  if (!res.ok) throw new Error("購入先情報の取得に失敗しました");
+  return res.json();
+}
+
+// --- 4.7 薬局検索 ---
+
+export type Pharmacy = {
+  name: string;
+  address: string;
+  phone: string | null;
+  lat: number;
+  lon: number;
+  opening_hours: string | null;
+  distance_m: number;
+};
+
+export async function getNearbyPharmacies(lat: number, lon: number): Promise<Pharmacy[]> {
+  const res = await fetch(`${API_BASE}/api/pharmacies/nearby?lat=${lat}&lon=${lon}`);
+  if (!res.ok) throw new Error("薬局情報の取得に失敗しました");
+  return res.json();
+}
+
+// --- 4.4 飲み合わせチェック ---
+
+export type InteractionCheckResult = {
+  overlaps: { ingredient: string; product_names: string[] }[];
+  precaution_notes: { product_name: string; generic_name: string; precautions: string }[];
+  disclaimer: string;
+};
+
+export async function checkInteractions(janCodes: string[]): Promise<InteractionCheckResult> {
+  const res = await fetch(`${API_BASE}/api/interactions/check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jan_codes: janCodes }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "飲み合わせチェックに失敗しました");
+  }
   return res.json();
 }

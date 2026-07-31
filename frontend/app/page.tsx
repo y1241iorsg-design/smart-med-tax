@@ -85,18 +85,30 @@ export default function HomePage() {
         📷 JANコードを読み取る
       </Link>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 mb-3">
         <Link
-          href="/history"
+          href="/pharmacies"
           className="bg-white rounded-xl shadow p-4 text-center text-sm font-medium text-gray-700"
         >
-          📋 購入履歴
+          📍 近くの薬局
         </Link>
         <Link
           href="/tax"
           className="bg-white rounded-xl shadow p-4 text-center text-sm font-medium text-gray-700"
         >
           📊 税制レポート
+        </Link>
+        <Link
+          href="/concierge"
+          className="bg-white rounded-xl shadow p-4 text-center text-sm font-medium text-gray-700"
+        >
+          👨‍⚕️ 専門家相談
+        </Link>
+        <Link
+          href="/wellness"
+          className="bg-white rounded-xl shadow p-4 text-center text-sm font-medium text-gray-700"
+        >
+          🌿 養生アドバイス
         </Link>
       </div>
     </main>

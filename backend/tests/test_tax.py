@@ -73,3 +73,17 @@ def test_summary_at_exact_threshold_not_qualified(client):
     assert data["total_qualified"] == 12000
     assert data["is_qualified"] is False   # must EXCEED 12000, not just equal it
     assert data["deductible_amount"] == 0
+
+
+def test_deduction_cap_applied_when_exceeds_88000(client):
+    client.post("/api/purchases", json={
+        "jan_code": "4987117709559",
+        "price": 100001,
+        "quantity": 1,
+        "purchased_at": "2026-06-01",
+    })
+    data = client.get("/api/tax/summary?year=2026").json()
+    assert data["raw_deductible_amount"] == 88001
+    assert data["deductible_amount"] == 88000
+    assert data["cap_applied"] is True
+    assert data["deduction_cap"] == 88000
