@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pathlib import Path
 from db import init_db
-from routers import jan, purchases, tax, chat, inventory, receipt, products, pharmacies, interactions
+from routers import jan, purchases, tax, chat, inventory, receipt, products, pharmacies, interactions, family
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
@@ -33,3 +33,4 @@ app.include_router(receipt.router, prefix="/api")
 app.include_router(products.router, prefix="/api")
 app.include_router(pharmacies.router, prefix="/api")
 app.include_router(interactions.router, prefix="/api")
+app.include_router(family.router, prefix="/api")
