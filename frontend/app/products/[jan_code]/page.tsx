@@ -120,7 +120,7 @@ export default function ProductDetailPage() {
             target="_blank"
             rel="noopener noreferrer"
             data-testid="pdf-link"
-            className="inline-block mt-4 text-indigo-600 text-sm font-medium underline"
+            className="inline-block mt-4 text-[#FFCCBC] text-sm font-medium underline"
           >
             添付文書(公式情報)を見る ↗
           </a>
@@ -128,24 +128,58 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow p-6 mb-4">
-        <h2 className="font-bold text-sm text-gray-900 mb-3">購入先(複数店舗)</h2>
+        <h2 className="font-bold text-sm text-gray-900 mb-1">価格比較（店舗横断）</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          参考価格の安い順です。在庫は扱いません。最新価格は各購入ページでご確認ください。
+        </p>
+        {vendors.length > 0 && (
+          <p className="text-sm mb-3" style={{ color: "#E65100" }}>
+            最安参考価格{" "}
+            <span className="font-bold text-lg">
+              ¥{Math.min(...vendors.map((v) => v.price)).toLocaleString()}
+            </span>
+            <span className="text-xs text-gray-400 ml-2">
+              〜 ¥{Math.max(...vendors.map((v) => v.price)).toLocaleString()}
+            </span>
+          </p>
+        )}
         <div className="space-y-2" data-testid="vendor-list">
           {vendors.map((v, i) => (
-            <div key={i} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
+            <div
+              key={i}
+              className="flex items-center justify-between border rounded-lg px-3 py-2"
+              style={{
+                borderColor: v.is_lowest ? "#FFCCBC" : "#f3f4f6",
+                background: v.is_lowest ? "#FFF3E0" : "#fff",
+              }}
+            >
               <div>
-                <p className="text-sm font-medium">{v.store_name}</p>
-                <p className="text-xs text-gray-400">{v.in_stock ? "在庫あり" : "在庫切れ"}</p>
+                <p className="text-sm font-medium">
+                  {v.store_name}
+                  {v.is_lowest ? (
+                    <span
+                      className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ background: "#FFCCBC", color: "#1f2937" }}
+                    >
+                      最安
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-gray-400">参考価格</p>
               </div>
               <div className="flex items-center gap-3">
-                <p className="text-sm font-semibold text-amber-600">¥{v.price.toLocaleString()}</p>
+                <p className="text-sm font-semibold" style={{ color: "#E65100" }}>
+                  ¥{v.price.toLocaleString()}
+                </p>
                 <a
                   href={v.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg"
+                  className="text-xs text-gray-900 px-3 py-1.5 rounded-lg"
+                  style={{ background: "#FFCCBC" }}
                   data-testid="vendor-purchase-link"
                 >
-                  購入ページへ
+                  最新価格を見る
                 </a>
               </div>
             </div>
@@ -153,7 +187,7 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow p-6">
+      <div className="bg-white rounded-xl shadow p-6" id="handbook">
         <h2 className="font-bold text-sm text-gray-900 mb-3">お薬手帳に登録</h2>
 
         {success && (
@@ -220,7 +254,7 @@ export default function ProductDetailPage() {
         <button
           onClick={handleRegister}
           disabled={!price || submitting}
-          className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+          className="w-full bg-green-600 text-gray-900 py-3 rounded-xl font-semibold disabled:opacity-50"
           data-testid="register-button"
         >
           {submitting ? "登録中..." : "お薬手帳に登録する"}

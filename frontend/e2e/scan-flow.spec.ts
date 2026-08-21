@@ -15,8 +15,9 @@ test.describe("JANスキャン → 購入追加 → ダッシュボード反映"
       10
     );
 
-    // スキャンページへ移動
-    await page.getByTestId("scan-link").click();
+    // お薬手帳経由でスキャンページへ移動
+    await page.goto("/handbook");
+    await page.getByTestId("add-record-button").click();
     await expect(page).toHaveURL("/scan");
 
     // JANコード入力
@@ -26,7 +27,7 @@ test.describe("JANスキャン → 購入追加 → ダッシュボード反映"
     // 商品情報の表示を確認
     await expect(page.getByTestId("product-info")).toBeVisible();
     await expect(page.getByTestId("product-name")).toContainText(
-      "ロキソニンS 12錠"
+      "A解熱鎮痛薬 12錠"
     );
     await expect(page.getByTestId("qualified-badge")).toBeVisible();
 

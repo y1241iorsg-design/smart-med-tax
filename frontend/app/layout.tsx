@@ -14,9 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className="bg-gray-50 min-h-screen">
-        {children}
-        <NavBar />
+      <body className="min-h-screen bg-background">
+        <div className="mx-auto max-w-md min-h-screen flex flex-col bg-white relative sm:shadow-2xl sm:shadow-black/5">
+          <main className="flex-1 pb-24">{children}</main>
+          <NavBar />
+        </div>
       </body>
     </html>
   );

@@ -21,3 +21,18 @@ def test_generate_vendor_listings_returns_multiple_per_product():
     for code in jan_codes:
         count = sum(1 for v in listings if v["jan_code"] == code)
         assert count >= 2, f"{code} の購入先が2件未満です"
+
+
+def test_vendor_urls_point_to_real_ec_domains():
+    listings = generate_vendor_listings(MOCK_PRODUCTS[:1])
+    urls = {v["url"] for v in listings}
+    assert any("rakuten.co.jp" in u for u in urls)
+    assert any("amazon.co.jp" in u for u in urls)
+    assert any("yahoo.co.jp" in u for u in urls)
+    assert all("mock-store" not in u for u in urls)
+
+
+def test_vendor_listings_have_no_out_of_stock():
+    """在庫連動は行わないため、シードは常に in_stock=True。"""
+    listings = generate_vendor_listings(MOCK_PRODUCTS)
+    assert all(v["in_stock"] is True for v in listings)

@@ -2,6 +2,7 @@ import json
 import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from condition_catalog import CONDITION_OPTIONS
 from db import get_db
 
 router = APIRouter()
@@ -24,6 +25,11 @@ class FamilyMemberOut(BaseModel):
     allergies: list[str]
 
 
+def _normalize_conditions(conditions: list[str]) -> list[str]:
+    allowed = set(CONDITION_OPTIONS)
+    return [c for c in conditions if c in allowed]
+
+
 def _row_to_out(row: sqlite3.Row) -> FamilyMemberOut:
     return FamilyMemberOut(
         id=row["id"],
@@ -33,6 +39,11 @@ def _row_to_out(row: sqlite3.Row) -> FamilyMemberOut:
         current_medications=json.loads(row["current_medications"] or "[]"),
         allergies=json.loads(row["allergies"] or "[]"),
     )
+
+
+@router.get("/family/condition-options", response_model=list[str])
+def list_condition_options() -> list[str]:
+    return CONDITION_OPTIONS
 
 
 @router.get("/family", response_model=list[FamilyMemberOut])
@@ -46,13 +57,14 @@ def create_family(body: FamilyMemberIn, db: sqlite3.Connection = Depends(get_db)
     exists = db.execute("SELECT id FROM family_members WHERE name = ?", [body.name]).fetchone()
     if exists:
         raise HTTPException(status_code=400, detail="同じ名前の家族が既に登録されています")
+    conditions = _normalize_conditions(body.conditions)
     cur = db.execute(
         "INSERT INTO family_members (name, relationship, conditions, current_medications, allergies) "
         "VALUES (?, ?, ?, ?, ?)",
         [
             body.name,
             body.relationship,
-            json.dumps(body.conditions, ensure_ascii=False),
+            json.dumps(conditions, ensure_ascii=False),
             json.dumps(body.current_medications, ensure_ascii=False),
             json.dumps(body.allergies, ensure_ascii=False),
         ],
@@ -75,13 +87,14 @@ def update_family(
     ).fetchone()
     if dup:
         raise HTTPException(status_code=400, detail="同じ名前の家族が既に登録されています")
+    conditions = _normalize_conditions(body.conditions)
     db.execute(
         "UPDATE family_members SET name=?, relationship=?, conditions=?, "
         "current_medications=?, allergies=? WHERE id=?",
         [
             body.name,
             body.relationship,
-            json.dumps(body.conditions, ensure_ascii=False),
+            json.dumps(conditions, ensure_ascii=False),
             json.dumps(body.current_medications, ensure_ascii=False),
             json.dumps(body.allergies, ensure_ascii=False),
             member_id,

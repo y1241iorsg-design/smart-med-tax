@@ -2,6 +2,12 @@
 .worktrees/
 .env
 backend/data/medtax.db
+backend/.venv/
+backend/.tools/
+frontend/.tools/
 frontend/.env.local
 __pycache__/
 *.pyc
+.tools/
+.pytest_cache/
+.DS_Store

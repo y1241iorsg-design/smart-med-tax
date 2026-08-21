@@ -1,12 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f9fc;
-  --foreground: #212121;
-  --primary: #1565c0;
-  --primary-dark: #0d47a1;
-  --primary-soft: #e3f2fd;
-  --muted: #616161;
+  --background: #fffbf7;
+  --foreground: #2d3436;
+  --primary: #5b8a7a;
+  --primary-soft: #e8f5f1;
+  --pastel-mint: #b2dfdb;
+  --pastel-sky: #b3e5fc;
+  --pastel-peach: #ffe0b2;
+  --pastel-lemon: #fff9c4;
+  --pastel-pink: #f8bbd0;
+  --pastel-coral: #ffccbc;
+  --pastel-green: #c8e6c9;
+  --muted: #636e72;
   --warn-bg: #fff8e1;
   --danger-bg: #ffebee;
   --radius: 0.75rem;
@@ -16,7 +22,6 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
-  --color-primary-dark: var(--primary-dark);
   --color-primary-soft: var(--primary-soft);
   --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
 }

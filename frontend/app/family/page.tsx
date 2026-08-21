@@ -4,16 +4,23 @@ import { FormEvent, useEffect, useState } from "react";
 import { Loader2, Pencil, Plus, Trash2, Users } from "lucide-react";
 import {
   createFamilyMember,
+  createPrescription,
   deleteFamilyMember,
+  deletePrescription,
+  getConditionOptions,
   getFamily,
+  getPrescriptions,
+  getRxCatalog,
   updateFamilyMember,
   type FamilyMember,
+  type Prescription,
+  type RxCatalogItem,
 } from "@/lib/api";
 
 type FamilyForm = {
   name: string;
   relationship: string;
-  conditions: string;
+  conditions: string[];
   currentMedications: string;
   allergies: string;
 };
@@ -21,7 +28,7 @@ type FamilyForm = {
 const EMPTY_FORM: FamilyForm = {
   name: "",
   relationship: "",
-  conditions: "",
+  conditions: [],
   currentMedications: "",
   allergies: "",
 };
@@ -56,16 +63,34 @@ function DetailRow({
 
 export default function FamilyPage() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [conditionOptions, setConditionOptions] = useState<string[]>([]);
+  const [rxCatalog, setRxCatalog] = useState<RxCatalogItem[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FamilyForm>(EMPTY_FORM);
+  const [rxMember, setRxMember] = useState("自分");
+  const [rxCode, setRxCode] = useState("");
+  const [rxSaving, setRxSaving] = useState(false);
 
   useEffect(() => {
-    getFamily()
-      .then(setMembers)
+    Promise.all([
+      getFamily(),
+      getConditionOptions(),
+      getRxCatalog(),
+      getPrescriptions(),
+    ])
+      .then(([family, options, catalog, rxList]) => {
+        setMembers(family);
+        setConditionOptions(options);
+        setRxCatalog(catalog);
+        setPrescriptions(rxList);
+        if (family[0]) setRxMember(family[0].name);
+        if (catalog[0]) setRxCode(catalog[0].code);
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -82,7 +107,7 @@ export default function FamilyPage() {
     setForm({
       name: member.name,
       relationship: member.relationship ?? "",
-      conditions: joinItems(member.conditions),
+      conditions: [...member.conditions],
       currentMedications: joinItems(member.current_medications),
       allergies: joinItems(member.allergies),
     });
@@ -96,6 +121,15 @@ export default function FamilyPage() {
     setForm(EMPTY_FORM);
   }
 
+  function toggleCondition(label: string) {
+    setForm((current) => ({
+      ...current,
+      conditions: current.conditions.includes(label)
+        ? current.conditions.filter((item) => item !== label)
+        : [...current.conditions, label],
+    }));
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = form.name.trim();
@@ -107,7 +141,7 @@ export default function FamilyPage() {
     const data = {
       name,
       relationship: form.relationship.trim() || null,
-      conditions: splitItems(form.conditions),
+      conditions: form.conditions,
       current_medications: splitItems(form.currentMedications),
       allergies: splitItems(form.allergies),
     };
@@ -154,6 +188,36 @@ export default function FamilyPage() {
     }
   }
 
+  async function handleAddPrescription(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!rxCode) return;
+    setRxSaving(true);
+    setError(null);
+    try {
+      const created = await createPrescription({
+        family_member_name: rxMember,
+        rx_code: rxCode,
+      });
+      setPrescriptions((current) => [created, ...current]);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "処方薬の登録に失敗しました");
+    } finally {
+      setRxSaving(false);
+    }
+  }
+
+  async function handleDeletePrescription(item: Prescription) {
+    if (!window.confirm(`「${item.name}」の登録を削除しますか？`)) return;
+    try {
+      await deletePrescription(item.id);
+      setPrescriptions((current) =>
+        current.filter((rx) => rx.id !== item.id),
+      );
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "削除に失敗しました");
+    }
+  }
+
   return (
     <div className="animate-fade-in">
       <header className="bg-white px-5 pt-6 pb-4">
@@ -161,14 +225,14 @@ export default function FamilyPage() {
           <div>
             <h1 className="text-lg font-bold text-gray-800">家族情報</h1>
             <p className="text-[11px] text-gray-500">
-              家族ごとの情報をまとめて管理
+              同じ端末・同じアプリ内で家族の記録を共有・集計します
             </p>
           </div>
           <button
             type="button"
             onClick={openAddForm}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white transition-colors"
-            style={{ background: "#1565C0" }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-900 transition-colors"
+            style={{ background: "#FFCCBC" }}
             aria-label="家族を追加"
             data-testid="family-add-button"
           >
@@ -178,6 +242,14 @@ export default function FamilyPage() {
       </header>
 
       <main className="px-5 py-4">
+        <div
+          className="mb-4 rounded-2xl p-3 text-[11px] leading-relaxed text-gray-600"
+          style={{ background: "#E3F2FD" }}
+        >
+          家族を登録すると、お薬手帳・税制集計・検索時の持病注意表示を家族ごとにまとめられます。
+          クラウドのアカウント連携は未対応で、この端末のアプリデータが共有の単位です。
+        </div>
+
         {error && (
           <div className="mb-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">
             {error}
@@ -205,7 +277,7 @@ export default function FamilyPage() {
                       name: event.target.value,
                     }))
                   }
-                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#FFCCBC]"
                   placeholder="例：母"
                   maxLength={40}
                   required
@@ -224,21 +296,42 @@ export default function FamilyPage() {
                       relationship: event.target.value,
                     }))
                   }
-                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#FFCCBC]"
                   placeholder="例：母親"
                 />
               </label>
 
+              <div>
+                <p className="mb-2 text-xs font-medium text-gray-700">
+                  持病・注意事項（問診表から選択）
+                </p>
+                <div className="flex flex-wrap gap-1.5" data-testid="condition-checklist">
+                  {conditionOptions.map((option) => {
+                    const selected = form.conditions.includes(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => toggleCondition(option)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] ${
+                          selected
+                            ? "font-semibold text-gray-900"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                        style={selected ? { background: "#FFCCBC" } : undefined}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {[
                 {
-                  key: "conditions" as const,
-                  label: "持病",
-                  placeholder: "例：高血圧、花粉症",
-                },
-                {
                   key: "currentMedications" as const,
-                  label: "服用中",
-                  placeholder: "例：薬の名前を「、」で区切って入力",
+                  label: "服用中（OTCなど）",
+                  placeholder: "例：A解熱鎮痛薬、I胃腸薬",
                 },
                 {
                   key: "allergies" as const,
@@ -260,7 +353,7 @@ export default function FamilyPage() {
                         [field.key]: event.target.value,
                       }))
                     }
-                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600"
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#FFCCBC]"
                     placeholder={field.placeholder}
                   />
                 </label>
@@ -268,7 +361,7 @@ export default function FamilyPage() {
             </div>
 
             <p className="mt-2 text-[10px] text-gray-400">
-              複数ある場合は「、」で区切って入力してください
+              服用中・アレルギーは複数ある場合「、」で区切ってください
             </p>
 
             <div className="mt-4 flex gap-2">
@@ -283,8 +376,8 @@ export default function FamilyPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: "#1565C0" }}
+                className="flex flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-medium text-gray-900 disabled:opacity-50"
+                style={{ background: "#FFCCBC" }}
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -302,7 +395,7 @@ export default function FamilyPage() {
           <div className="flex justify-center py-20">
             <Loader2
               className="h-6 w-6 animate-spin"
-              style={{ color: "#1565C0" }}
+              style={{ color: "#FFCCBC" }}
             />
           </div>
         ) : (
@@ -312,14 +405,14 @@ export default function FamilyPage() {
                 <article
                   key={member.id}
                   className="rounded-2xl p-4"
-                  style={{ background: "#E3F2FD" }}
+                  style={{ background: "#FFF3E0" }}
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/70">
                         <Users
                           className="h-5 w-5"
-                          style={{ color: "#1565C0" }}
+                          style={{ color: "#FFCCBC" }}
                         />
                       </div>
                       <div className="min-w-0">
@@ -354,23 +447,107 @@ export default function FamilyPage() {
                     </div>
                   </div>
 
-                  <dl className="grid gap-2 border-t border-blue-200 pt-3">
-                    <DetailRow label="持病" items={member.conditions} />
+                  <dl className="grid gap-2 border-t border-[#B2DFDB] pt-3">
+                    <DetailRow label="持病・注意事項" items={member.conditions} />
                     <DetailRow
-                      label="服用中"
+                      label="服用中（OTCなど）"
                       items={member.current_medications}
                     />
                     <DetailRow label="アレルギー" items={member.allergies} />
+                    <DetailRow
+                      label="処方薬（登録のみ）"
+                      items={prescriptions
+                        .filter((rx) => rx.family_member_name === member.name)
+                        .map((rx) => rx.name)}
+                    />
                   </dl>
                 </article>
               ))}
             </div>
 
+            <section
+              className="mt-5 rounded-2xl p-4"
+              style={{ background: "#F3E5F5" }}
+              data-testid="prescription-section"
+            >
+              <h2 className="mb-1 text-sm font-bold text-gray-800">
+                処方薬の登録（高齢家族の管理用）
+              </h2>
+              <p className="mb-3 text-[11px] text-gray-500">
+                診断・推奨は行いません。記録用のダミー名称から選んで登録できます。
+              </p>
+              <form onSubmit={handleAddPrescription} className="space-y-2">
+                <label className="block text-xs text-gray-700">
+                  対象の家族
+                  <select
+                    value={rxMember}
+                    onChange={(e) => setRxMember(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+                  >
+                    {members.map((m) => (
+                      <option key={m.id} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-gray-700">
+                  処方薬（ダミー名）
+                  <select
+                    value={rxCode}
+                    onChange={(e) => setRxCode(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+                    data-testid="rx-select"
+                  >
+                    {rxCatalog.map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {item.name}（{item.category}）
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="submit"
+                  disabled={rxSaving || !rxCode}
+                  className="w-full rounded-xl py-2.5 text-sm font-medium text-gray-900 disabled:opacity-50"
+                  style={{ background: "#E1BEE7" }}
+                >
+                  {rxSaving ? "登録中..." : "処方薬を登録"}
+                </button>
+              </form>
+
+              <ul className="mt-3 space-y-2">
+                {prescriptions.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        {item.family_member_name} / {item.category}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePrescription(item)}
+                      className="text-red-600"
+                      aria-label={`${item.name}を削除`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
             {members.length <= 1 && (
               <div className="flex flex-col items-center py-10 text-center">
                 <div
                   className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl"
-                  style={{ background: "#E3F2FD" }}
+                  style={{ background: "#FFF3E0" }}
                 >
                   <Users className="h-7 w-7 text-gray-500" />
                 </div>
@@ -378,13 +555,13 @@ export default function FamilyPage() {
                   家族の情報も登録できます
                 </p>
                 <p className="mb-4 text-xs text-gray-400">
-                  必要な情報を家族ごとにまとめておきましょう
+                  持病・処方薬・税制対象購入を家族ごとにまとめられます
                 </p>
                 <button
                   type="button"
                   onClick={openAddForm}
                   className="rounded-xl px-4 py-2 text-sm font-medium text-white"
-                  style={{ background: "#1565C0" }}
+                  style={{ background: "#FFCCBC" }}
                 >
                   家族を追加
                 </button>

@@ -9,7 +9,7 @@ def test_add_purchase_returns_saved_record(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["id"] == 1
-    assert data["product_name"] == "ロキソニンS 12錠"
+    assert data["product_name"] == "A解熱鎮痛薬 12錠"
     assert data["is_qualified"] == 1
 
 

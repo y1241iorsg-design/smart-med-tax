@@ -18,7 +18,9 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [escalate, setEscalate] = useState(false);
   const [readyForSearch, setReadyForSearch] = useState(false);
+  const [awaitingMeds, setAwaitingMeds] = useState(false);
   const [extractedSymptoms, setExtractedSymptoms] = useState<string[]>([]);
+  const [currentMeds, setCurrentMeds] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,7 +39,11 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, { id: Date.now() + 1, role: "assistant", text: res.reply }]);
       setEscalate(res.escalate);
       setReadyForSearch(res.ready_for_search);
-      setExtractedSymptoms(res.extracted_symptoms);
+      setAwaitingMeds(Boolean(res.awaiting_meds));
+      if (res.extracted_symptoms.length > 0) {
+        setExtractedSymptoms(res.extracted_symptoms);
+      }
+      setCurrentMeds(res.current_meds ?? []);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -49,16 +55,20 @@ export default function ChatPage() {
   }
 
   function goToSearch() {
-    const query = encodeURIComponent(extractedSymptoms.join(","));
-    router.push(`/search?symptoms=${query}`);
+    const params = new URLSearchParams();
+    params.set("symptoms", extractedSymptoms.join(","));
+    if (currentMeds.length > 0) {
+      params.set("meds", currentMeds.join(","));
+    }
+    router.push(`/search?${params.toString()}`);
   }
 
   return (
-    <main className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-3.5rem)]">
-      <div className="px-4 py-3 border-b bg-white">
-        <h1 className="text-lg font-bold text-gray-900">AIチャット相談</h1>
-        <p className="text-xs text-gray-500">
-          症状をチャットで入力すると、関連するOTC医薬品の情報をご案内します。診断は行いません。
+    <div className="flex flex-col h-[calc(100vh-4.5rem)] animate-fade-in">
+      <div className="px-5 py-4 bg-white">
+        <h1 className="text-lg font-bold text-gray-800">症状キーワード相談</h1>
+        <p className="text-[11px] text-gray-500 mt-0.5">
+          症状と服用中の薬をうかがい、添付文書の効能に合う商品情報を表示します。診断は行いません。
         </p>
       </div>
 
@@ -71,7 +81,7 @@ export default function ChatPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ background: "#FFFBF7" }}>
         {messages.map((m) => (
           <div
             key={m.id}
@@ -81,9 +91,14 @@ export default function ChatPage() {
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
                 m.role === "user"
-                  ? "bg-indigo-600 text-white rounded-tr-sm"
-                  : "bg-white shadow text-gray-800 rounded-tl-sm"
+                  ? "text-gray-900 rounded-tr-sm"
+                  : "shadow-sm text-gray-800 rounded-tl-sm"
               }`}
+              style={
+                m.role === "user"
+                  ? { background: "#B3E5FC" }
+                  : { background: "#FFF9C4" }
+              }
             >
               {m.text}
             </div>
@@ -91,7 +106,10 @@ export default function ChatPage() {
         ))}
         {loading && (
           <div className="flex justify-start" data-testid="loading-indicator">
-            <div className="bg-white shadow rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-400">
+            <div
+              className="rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-400"
+              style={{ background: "#F8BBD0" }}
+            >
               入力中...
             </div>
           </div>
@@ -100,11 +118,12 @@ export default function ChatPage() {
       </div>
 
       {readyForSearch && (
-        <div className="px-4 py-3 bg-indigo-50 border-t border-indigo-100">
+        <div className="px-4 py-3 border-t" style={{ background: "#DCEDC8" }}>
           <button
             onClick={goToSearch}
             data-testid="go-to-search-button"
-            className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold text-sm active:bg-indigo-700"
+            className="w-full text-gray-900 py-3 rounded-xl font-semibold text-sm"
+            style={{ background: "#FFE0B2" }}
           >
             検索結果を見る
           </button>
@@ -112,26 +131,43 @@ export default function ChatPage() {
       )}
 
       <div className="px-4 py-2 bg-white border-t">
+        {awaitingMeds && (
+          <div className="flex gap-2 mb-2">
+            {["なし", "A解熱鎮痛薬", "Rx-F鎮痛薬"].map((quick) => (
+              <button
+                key={quick}
+                type="button"
+                onClick={() => setInput(quick)}
+                className="text-xs px-2.5 py-1 rounded-full text-gray-700"
+                style={{ background: "#E3F2FD" }}
+                data-testid="med-quick-chip"
+              >
+                {quick}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="症状を入力..."
-            className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            placeholder={awaitingMeds ? "服用中の薬、または「なし」" : "症状を入力..."}
+            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFCCBC]"
             data-testid="chat-input"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-40 active:bg-indigo-700"
+            className="text-gray-900 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-40"
+            style={{ background: "#FFCCBC" }}
             data-testid="send-button"
           >
             送信
           </button>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Receipt,
+  ShoppingBag,
   Store,
   Trash2,
   User,
@@ -25,10 +26,10 @@ import {
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
-const PRIMARY = "#1565C0";
-const PRIMARY_SOFT = "#E3F2FD";
+const PRIMARY = "#FFCCBC";
+const PRIMARY_SOFT = "#FFF3E0";
 const INPUT_CLASS =
-  "mt-1 w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-sm text-gray-800";
+  "mt-1 w-full rounded-lg border border-[#B2DFDB] bg-white px-2 py-1.5 text-sm text-gray-800";
 
 type EditForm = {
   price: string;
@@ -77,10 +78,40 @@ export default function HandbookPage() {
     }
   }
 
-  useEffect(() => {
+  function handleYearChange(option: number) {
     setEditingId(null);
     setEditForm(null);
-    void loadPurchases(year);
+    setYear(option);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError(null);
+      getPurchases(year)
+        .then((data) => {
+          if (!cancelled) setPurchases(data);
+        })
+        .catch((caught: unknown) => {
+          if (!cancelled) {
+            setError(
+              caught instanceof Error
+                ? caught.message
+                : "購入履歴の取得に失敗しました",
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [year]);
 
   const otherMembers = Array.from(
@@ -204,7 +235,7 @@ export default function HandbookPage() {
           </div>
           <Link
             href="/scan"
-            className="w-9 h-9 rounded-xl text-white flex items-center justify-center transition-colors shrink-0"
+            className="w-9 h-9 rounded-xl text-gray-900 flex items-center justify-center transition-colors shrink-0"
             style={{ background: PRIMARY }}
             data-testid="add-record-button"
             aria-label="購入記録を追加"
@@ -218,9 +249,9 @@ export default function HandbookPage() {
             <button
               key={option}
               type="button"
-              onClick={() => setYear(option)}
+              onClick={() => handleYearChange(option)}
               className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap transition-colors ${
-                year === option ? "text-white" : "text-gray-700"
+                year === option ? "text-gray-900" : "text-gray-700"
               }`}
               style={{
                 background: year === option ? PRIMARY : PRIMARY_SOFT,
@@ -239,7 +270,7 @@ export default function HandbookPage() {
               type="button"
               onClick={() => setMemberFilter(member)}
               className={`text-xs px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors ${
-                memberFilter === member ? "text-white" : "text-gray-700"
+                memberFilter === member ? "text-gray-900" : "text-gray-700"
               }`}
               style={{
                 background: memberFilter === member ? PRIMARY : PRIMARY_SOFT,
@@ -285,7 +316,7 @@ export default function HandbookPage() {
                 </p>
                 <Link
                   href="/scan"
-                  className="px-4 py-2 rounded-xl text-white text-sm font-medium"
+                  className="px-4 py-2 rounded-xl text-gray-900 text-sm font-medium"
                   style={{ background: PRIMARY }}
                 >
                   記録を追加
@@ -368,8 +399,20 @@ export default function HandbookPage() {
                     メモ：{purchase.memo || "未入力"}
                   </p>
 
+                  <div className="mt-3 flex gap-2">
+                    <Link
+                      href={`/products/${purchase.jan_code}`}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-semibold text-gray-900"
+                      style={{ background: "#B3E5FC" }}
+                      data-testid="repurchase-link"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      再購入・価格を見る
+                    </Link>
+                  </div>
+
                   {purchase.follow_up_status === "未入力" && (
-                    <div className="mt-3 pt-3 border-t border-blue-200">
+                    <div className="mt-3 pt-3 border-t border-[#B2DFDB]">
                       <p className="text-xs font-bold text-gray-800 mb-2">
                         経過はいかがですか？
                       </p>
@@ -420,7 +463,7 @@ export default function HandbookPage() {
                   )}
 
                   {editingId === purchase.id && editForm && (
-                    <div className="mt-3 pt-3 border-t border-blue-200 space-y-2">
+                    <div className="mt-3 pt-3 border-t border-[#B2DFDB] space-y-2">
                       <div className="grid grid-cols-2 gap-2">
                         <label className="text-[11px] text-gray-600">
                           金額
@@ -511,7 +554,7 @@ export default function HandbookPage() {
                           type="button"
                           onClick={() => handleSave(purchase.id)}
                           disabled={savingId === purchase.id}
-                          className="flex-1 flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-medium text-white disabled:opacity-50"
+                          className="flex-1 flex items-center justify-center gap-1 rounded-lg py-2 text-xs font-medium text-gray-900 disabled:opacity-50"
                           style={{ background: PRIMARY }}
                         >
                           <Check className="w-3.5 h-3.5" />
@@ -532,7 +575,7 @@ export default function HandbookPage() {
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-3 mt-3 pt-2 border-t border-blue-200">
+                  <div className="flex justify-end gap-3 mt-3 pt-2 border-t border-[#B2DFDB]">
                     <button
                       type="button"
                       onClick={() => startEditing(purchase)}

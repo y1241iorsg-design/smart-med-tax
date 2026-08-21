@@ -1,5 +1,6 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Same-origin /api/* is proxied to the backend via next.config rewrites.
+// Set NEXT_PUBLIC_API_URL only if you need to call the backend directly.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 // SQLite returns is_qualified as 0 or 1 (integer). Both are treated as
 // truthy/falsy in JS, so conditional rendering (product.is_qualified ? ...) works.
@@ -43,6 +44,7 @@ export type TaxSummary = {
   deduction_cap: number;
   is_qualified: boolean;
   cap_applied: boolean;
+  by_member?: { name: string; total_qualified: number }[];
 };
 
 export async function lookupJan(code: string): Promise<Product> {
@@ -51,6 +53,16 @@ export async function lookupJan(code: string): Promise<Product> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? "検索に失敗しました");
   }
+  return res.json();
+}
+
+export async function findProductsByName(query: string): Promise<Product[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const res = await fetch(
+    `${API_BASE}/api/products/find?q=${encodeURIComponent(q)}`
+  );
+  if (!res.ok) throw new Error("商品名検索に失敗しました");
   return res.json();
 }
 
@@ -122,6 +134,8 @@ export type ChatApiResponse = {
   escalate: boolean;
   ready_for_search: boolean;
   extracted_symptoms: string[];
+  current_meds?: string[];
+  awaiting_meds?: boolean;
 };
 
 export async function sendChatTurn(history: ChatTurn[]): Promise<ChatApiResponse> {
@@ -136,17 +150,30 @@ export async function sendChatTurn(history: ChatTurn[]): Promise<ChatApiResponse
 
 // --- 4.2 OTC医薬品レコメンド / 4.3 購入支援 ---
 
-export type ProductSearchResult = Product & { overlap_warning: boolean };
+export type ProductSearchResult = Product & {
+  overlap_warning: boolean;
+  condition_warnings?: string[];
+  vendor_min_price?: number | null;
+  vendor_max_price?: number | null;
+  vendor_count?: number;
+  price_note?: string;
+};
 
 export async function searchProducts(
   symptoms: string[],
   filters: string[] = [],
-  currentMeds: string[] = []
+  currentMeds: string[] = [],
+  conditions: string[] = []
 ): Promise<ProductSearchResult[]> {
   const res = await fetch(`${API_BASE}/api/products/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symptoms, filters, current_meds: currentMeds }),
+    body: JSON.stringify({
+      symptoms,
+      filters,
+      current_meds: currentMeds,
+      conditions,
+    }),
   });
   if (!res.ok) throw new Error("商品検索に失敗しました");
   return res.json();
@@ -157,11 +184,28 @@ export type VendorListing = {
   price: number;
   in_stock: boolean;
   url: string;
+  is_lowest?: boolean;
+  price_note?: string;
+};
+
+export type PriceCompare = {
+  jan_code: string;
+  product_name: string;
+  min_price: number;
+  max_price: number;
+  vendors: VendorListing[];
+  disclaimer: string;
 };
 
 export async function getProductVendors(janCode: string): Promise<VendorListing[]> {
   const res = await fetch(`${API_BASE}/api/products/${janCode}/vendors`);
   if (!res.ok) throw new Error("購入先情報の取得に失敗しました");
+  return res.json();
+}
+
+export async function getPriceCompare(janCode: string): Promise<PriceCompare> {
+  const res = await fetch(`${API_BASE}/api/products/${janCode}/price-compare`);
+  if (!res.ok) throw new Error("価格比較の取得に失敗しました");
   return res.json();
 }
 
@@ -217,6 +261,75 @@ export async function getFamily(): Promise<FamilyMember[]> {
   const res = await fetch(`${API_BASE}/api/family`);
   if (!res.ok) throw new Error("家族情報の取得に失敗しました");
   return res.json();
+}
+
+export async function getConditionOptions(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/family/condition-options`);
+  if (!res.ok) throw new Error("持病リストの取得に失敗しました");
+  return res.json();
+}
+
+export type RxCatalogItem = {
+  code: string;
+  name: string;
+  generic_name: string;
+  category: string;
+};
+
+export type Prescription = {
+  id: number;
+  family_member_name: string;
+  rx_code: string;
+  name: string;
+  generic_name: string;
+  category: string;
+  started_at: string | null;
+  memo: string | null;
+};
+
+export async function getRxCatalog(): Promise<RxCatalogItem[]> {
+  const res = await fetch(`${API_BASE}/api/prescriptions/catalog`);
+  if (!res.ok) throw new Error("処方薬リストの取得に失敗しました");
+  return res.json();
+}
+
+export async function getPrescriptions(
+  familyMemberName?: string
+): Promise<Prescription[]> {
+  const qs = familyMemberName
+    ? `?family_member_name=${encodeURIComponent(familyMemberName)}`
+    : "";
+  const res = await fetch(`${API_BASE}/api/prescriptions${qs}`);
+  if (!res.ok) throw new Error("処方薬登録の取得に失敗しました");
+  return res.json();
+}
+
+export async function createPrescription(data: {
+  family_member_name: string;
+  rx_code: string;
+  started_at?: string;
+  memo?: string;
+}): Promise<Prescription> {
+  const res = await fetch(`${API_BASE}/api/prescriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "処方薬の登録に失敗しました");
+  }
+  return res.json();
+}
+
+export async function deletePrescription(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/prescriptions/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "処方薬の削除に失敗しました");
+  }
 }
 
 export async function createFamilyMember(
@@ -307,6 +420,73 @@ export async function submitFollowUp(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? "経過の更新に失敗しました");
+  }
+  return res.json();
+}
+
+// --- 5.1 OTC コンシェルジュ ---
+
+export type Expert = {
+  id: number;
+  name: string;
+  title: string;
+  area: string;
+  rating: number;
+};
+
+export type ExpertSlot = {
+  id: number;
+  expert_id: number;
+  slot_at: string;
+  is_booked: boolean;
+};
+
+export type Booking = {
+  id: number;
+  expert_id: number;
+  expert_name: string;
+  expert_title: string;
+  slot_id: number;
+  slot_at: string;
+  share_handbook: boolean;
+  handbook_snapshot: Record<string, unknown> | null;
+  notes: string | null;
+  status: string;
+  created_at: string;
+};
+
+export async function getExperts(): Promise<Expert[]> {
+  const res = await fetch(`${API_BASE}/api/concierge/experts`);
+  if (!res.ok) throw new Error("専門家一覧の取得に失敗しました");
+  return res.json();
+}
+
+export async function getExpertSlots(expertId: number): Promise<ExpertSlot[]> {
+  const res = await fetch(`${API_BASE}/api/concierge/experts/${expertId}/slots`);
+  if (!res.ok) throw new Error("空き枠の取得に失敗しました");
+  return res.json();
+}
+
+export async function getBookings(): Promise<Booking[]> {
+  const res = await fetch(`${API_BASE}/api/concierge/bookings`);
+  if (!res.ok) throw new Error("予約一覧の取得に失敗しました");
+  return res.json();
+}
+
+export async function createBooking(data: {
+  expert_id: number;
+  slot_id: number;
+  share_handbook: boolean;
+  notes?: string;
+}): Promise<Booking> {
+  const res = await fetch(`${API_BASE}/api/concierge/bookings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "予約に失敗しました");
   }
   return res.json();
 }

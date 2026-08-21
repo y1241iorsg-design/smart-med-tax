@@ -2,7 +2,7 @@ def test_lookup_known_jan_returns_product(client):
     resp = client.get("/api/jan/4987117709559")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["name"] == "ロキソニンS 12錠"
+    assert data["name"] == "A解熱鎮痛薬 12錠"
     assert data["is_qualified"] == 1
 
 

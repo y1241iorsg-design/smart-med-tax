@@ -8,6 +8,12 @@ test.describe("AIチャット相談 → 検索結果 → 商品詳細 → お薬
     await page.getByTestId("send-button").click();
 
     await expect(page.getByTestId("assistant-bubble").last()).toContainText("頭痛・発熱");
+    await expect(page.getByTestId("assistant-bubble").last()).toContainText("普段から飲んでいる薬");
+    await expect(page.getByTestId("go-to-search-button")).not.toBeVisible();
+
+    await page.getByTestId("chat-input").fill("なし");
+    await page.getByTestId("send-button").click();
+
     await expect(page.getByTestId("go-to-search-button")).toBeVisible();
     await page.getByTestId("go-to-search-button").click();
 

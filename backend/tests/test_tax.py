@@ -17,7 +17,7 @@ def test_summary_returns_zero_with_no_purchases(client):
 
 
 def test_summary_below_threshold(client):
-    _add(client, "4987117709559", 5000, "2026-01-10")  # ロキソニン（対象）
+    _add(client, "4987117709559", 5000, "2026-01-10")  # A解熱鎮痛薬（対象）
     resp = client.get("/api/tax/summary?year=2026")
     data = resp.json()
     assert data["total_qualified"] == 5000
@@ -48,7 +48,7 @@ def test_export_csv_returns_file(client):
     assert "text/csv" in resp.headers["content-type"]
     content = resp.content.decode("utf-8-sig")
     assert "購入日" in content
-    assert "ロキソニンS 12錠" in content
+    assert "A解熱鎮痛薬 12錠" in content
 
 
 def test_export_xml_returns_file(client):
@@ -57,8 +57,8 @@ def test_export_xml_returns_file(client):
     assert resp.status_code == 200
     assert "xml" in resp.headers["content-type"]
     content = resp.content.decode("utf-8")
-    assert "医療費控除の明細書" in content
-    assert "ロキソニンS 12錠" in content
+    assert "確定申告準備_セルフメディケーション税制" in content
+    assert "A解熱鎮痛薬 12錠" in content
 
 
 def test_export_invalid_format_returns_400(client):

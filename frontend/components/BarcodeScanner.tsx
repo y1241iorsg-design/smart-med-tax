@@ -60,7 +60,7 @@ export default function BarcodeScanner({ onScan, onError }: Props) {
         <button
           type="button"
           onClick={startScan}
-          className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold text-sm"
+          className="w-full bg-[#FFCCBC] text-gray-900 py-3 rounded-xl font-semibold text-sm"
           data-testid="start-camera-button"
         >
           📷 カメラでバーコードを読み取る

@@ -41,13 +41,13 @@ def test_cannot_delete_self(client):
 def test_update_and_delete_member(client):
     created = client.post("/api/family", json={
         "name": "父", "relationship": "父親",
-        "conditions": [], "current_medications": ["ロキソニン"], "allergies": [],
+        "conditions": [], "current_medications": ["A解熱鎮痛薬"], "allergies": [],
     }).json()
     res = client.patch(f"/api/family/{created['id']}", json={
         "name": "父", "relationship": "父親",
-        "conditions": ["花粉症"], "current_medications": ["ロキソニン"], "allergies": [],
+        "conditions": ["花粉症・アレルギー性鼻炎"], "current_medications": ["A解熱鎮痛薬"], "allergies": [],
     })
     assert res.status_code == 200
-    assert res.json()["conditions"] == ["花粉症"]
+    assert res.json()["conditions"] == ["花粉症・アレルギー性鼻炎"]
     res = client.delete(f"/api/family/{created['id']}")
     assert res.status_code == 200

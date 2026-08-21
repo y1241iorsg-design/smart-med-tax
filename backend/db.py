@@ -5,7 +5,7 @@ DB_PATH = Path(__file__).parent / "data" / "medtax.db"
 
 
 def get_connection(path: Path | None = None) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(path or DB_PATH))
+    conn = sqlite3.connect(str(path or DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -64,6 +64,49 @@ def init_db(path: Path | None = None) -> None:
                 created_at           DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS experts (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                name       TEXT NOT NULL,
+                title      TEXT NOT NULL,
+                area       TEXT NOT NULL,
+                rating     REAL NOT NULL DEFAULT 0,
+                is_active  INTEGER NOT NULL DEFAULT 1
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS expert_slots (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                expert_id   INTEGER NOT NULL REFERENCES experts(id),
+                slot_at     TEXT NOT NULL,
+                is_booked   INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(expert_id, slot_at)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bookings (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                expert_id            INTEGER NOT NULL REFERENCES experts(id),
+                slot_id              INTEGER NOT NULL REFERENCES expert_slots(id),
+                slot_at              TEXT NOT NULL,
+                share_handbook       INTEGER NOT NULL DEFAULT 0,
+                handbook_snapshot    TEXT,
+                notes                TEXT,
+                status               TEXT NOT NULL DEFAULT 'confirmed',
+                created_at           DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS prescriptions (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_member_name   TEXT NOT NULL,
+                rx_code              TEXT NOT NULL,
+                started_at           DATE,
+                memo                 TEXT,
+                created_at           DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
         # 4.2/4.3向けに追加した列(既存DBに対する後方互換マイグレーション)
         _ensure_column(conn, "products", "dosage", "dosage TEXT NOT NULL DEFAULT ''")
@@ -80,6 +123,7 @@ def init_db(path: Path | None = None) -> None:
         _seed_products(conn)
         _seed_vendors(conn)
         _seed_family_self(conn)
+        _seed_experts(conn)
 
 
 def _seed_products(conn: sqlite3.Connection) -> None:
@@ -115,17 +159,29 @@ def _seed_vendors(conn: sqlite3.Connection) -> None:
     from data.vendor_mock import generate_vendor_listings
     from data.jan_mock import MOCK_PRODUCTS
 
-    # vendor_listings はユーザー入力を含まない完全なモックデータなので
-    # 起動のたびに全削除→再生成してよい。
+    # 価格比較用シード。在庫は連動しない（常に in_stock=1）。
+    # 起動のたびに全削除→再生成して参考価格を揃える。
     conn.execute("DELETE FROM vendor_listings")
+    listings = generate_vendor_listings(MOCK_PRODUCTS)
     conn.executemany(
         "INSERT INTO vendor_listings (jan_code, store_name, price, in_stock, url) "
         "VALUES (?, ?, ?, ?, ?)",
         [
             (v["jan_code"], v["store_name"], v["price"], int(v["in_stock"]), v["url"])
-            for v in generate_vendor_listings(MOCK_PRODUCTS)
+            for v in listings
         ],
     )
+    # 商品の表示価格をチャネル最安の参考価格に揃える（検索の価格順と連動）
+    for p in MOCK_PRODUCTS:
+        row = conn.execute(
+            "SELECT MIN(price) AS min_price FROM vendor_listings WHERE jan_code = ?",
+            [p["jan_code"]],
+        ).fetchone()
+        if row and row["min_price"] is not None:
+            conn.execute(
+                "UPDATE products SET price = ? WHERE jan_code = ?",
+                [row["min_price"], p["jan_code"]],
+            )
 
 
 def _seed_family_self(conn: sqlite3.Connection) -> None:
@@ -137,6 +193,40 @@ def _seed_family_self(conn: sqlite3.Connection) -> None:
             "INSERT INTO family_members (name, relationship, conditions, current_medications, allergies) "
             "VALUES ('自分', '本人', '[]', '[]', '[]')"
         )
+
+
+def _seed_experts(conn: sqlite3.Connection) -> None:
+    """専門家・空き枠のデモシード。既存予約がある場合は上書きしない。"""
+    count = conn.execute("SELECT COUNT(*) AS c FROM experts").fetchone()["c"]
+    if count > 0:
+        return
+
+    experts = [
+        ("田中 誠", "薬剤師", "渋谷区", 4.8),
+        ("山田 花子", "登録販売者", "新宿区", 4.6),
+        ("佐藤 健", "薬剤師", "港区", 4.9),
+    ]
+    for name, title, area, rating in experts:
+        conn.execute(
+            "INSERT INTO experts (name, title, area, rating, is_active) VALUES (?, ?, ?, ?, 1)",
+            [name, title, area, rating],
+        )
+
+    # 相対的な空き枠（今日〜明日の固定時刻ラベル）
+    slots_by_name = {
+        "田中 誠": ["今日 14:00", "今日 16:30", "明日 10:00"],
+        "山田 花子": ["今日 15:00", "明日 11:00", "明日 13:00"],
+        "佐藤 健": ["今日 17:00", "明日 09:30", "明日 14:00"],
+    }
+    for name, slots in slots_by_name.items():
+        expert = conn.execute("SELECT id FROM experts WHERE name = ?", [name]).fetchone()
+        if expert is None:
+            continue
+        for slot_at in slots:
+            conn.execute(
+                "INSERT INTO expert_slots (expert_id, slot_at, is_booked) VALUES (?, ?, 0)",
+                [expert["id"], slot_at],
+            )
 
 
 def get_db():
