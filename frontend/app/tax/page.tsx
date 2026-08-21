@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
-import { getTaxSummary, getTaxExportUrl, type TaxSummary } from "@/lib/api";
+import { getTaxSummary, downloadTaxExport, type TaxSummary } from "@/lib/api";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
@@ -199,24 +199,26 @@ export default function TaxPage() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <a
-                href={getTaxExportUrl(year, "csv")}
+              <button
+                type="button"
+                onClick={() => downloadTaxExport(year, "csv")}
                 className="rounded-2xl p-4 text-center font-semibold text-sm text-gray-900 flex flex-col items-center gap-2"
                 style={{ background: "#FFCCBC" }}
                 data-testid="csv-download"
               >
                 <Download className="w-5 h-5" />
                 CSV出力
-              </a>
-              <a
-                href={getTaxExportUrl(year, "xml")}
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadTaxExport(year, "xml")}
                 className="rounded-2xl p-4 text-center font-semibold text-sm text-gray-900 flex flex-col items-center gap-2"
                 style={{ background: "#FFE0B2" }}
                 data-testid="xml-download"
               >
                 <Download className="w-5 h-5" />
                 XML出力
-              </a>
+              </button>
             </div>
           </>
         )}
