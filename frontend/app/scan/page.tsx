@@ -170,7 +170,7 @@ export default function ScanPage() {
               onChange={(e) => setNameQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void handleNameSearch()}
               className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#81D4FA] bg-white"
-              placeholder="例: A解熱鎮痛薬、イブ、胃腸"
+              placeholder="例: A解熱鎮痛薬、胃腸"
               data-testid="name-input"
             />
             <button

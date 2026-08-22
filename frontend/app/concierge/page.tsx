@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarCheck, Loader2, UserRound } from "lucide-react";
+import { CalendarCheck, Loader2, ShieldCheck, UserRound } from "lucide-react";
 import {
   createBooking,
   getBookings,
@@ -21,7 +21,7 @@ export default function ConciergePage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [selectedExpertId, setSelectedExpertId] = useState<number | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
-  const [shareHandbook, setShareHandbook] = useState(true);
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [notes, setNotes] = useState("");
   const [confirmed, setConfirmed] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,8 +93,17 @@ export default function ConciergePage() {
     };
   }, [selectedExpertId]);
 
-  async function handleConfirm() {
+  function handleConfirmClick() {
     if (selectedExpertId == null || selectedSlotId == null) return;
+    // 共有するかどうかは、この確認ダイアログで明示的に選んだ場合のみ確定する。
+    // チェックボックスの見落としなどで意図せず共有されることを防ぐため、
+    // 予約の確定操作そのものとは分離している。
+    setShowConsentDialog(true);
+  }
+
+  async function finalizeBooking(shareHandbook: boolean) {
+    if (selectedExpertId == null || selectedSlotId == null) return;
+    setShowConsentDialog(false);
     setSubmitting(true);
     setError(null);
     try {
@@ -120,7 +129,7 @@ export default function ConciergePage() {
     setSelectedExpertId(null);
     setSelectedSlotId(null);
     setNotes("");
-    setShareHandbook(true);
+    setShowConsentDialog(false);
   }
 
   const selectedExpert = experts.find((e) => e.id === selectedExpertId);
@@ -237,18 +246,15 @@ export default function ConciergePage() {
                 </div>
               )}
 
-              <label className="flex items-start gap-3 mb-4 text-sm text-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={shareHandbook}
-                  onChange={(e) => setShareHandbook(e.target.checked)}
-                  className="mt-1"
-                  data-testid="share-handbook-checkbox"
-                />
+              <div
+                className="flex items-start gap-2 mb-4 text-xs text-gray-600 bg-gray-50 rounded-xl p-3"
+                data-testid="share-privacy-note"
+              >
+                <ShieldCheck size={16} className="shrink-0 mt-0.5 text-gray-400" />
                 <span>
-                  相談開始時にお薬手帳・家族の登録情報（事実データ）を専門家へ共有する
+                  お薬手帳・家族の登録情報は自動では共有されません。予約を確定する際に、共有するかどうかを個別に確認します。
                 </span>
-              </label>
+              </div>
 
               <label className="block mb-6">
                 <span className="text-xs text-gray-500 mb-1 block">相談メモ（任意）</span>
@@ -265,7 +271,7 @@ export default function ConciergePage() {
 
               <button
                 type="button"
-                onClick={handleConfirm}
+                onClick={handleConfirmClick}
                 disabled={selectedSlotId == null || submitting}
                 className="w-full text-gray-900 py-4 rounded-xl font-semibold disabled:opacity-40"
                 style={{ background: PRIMARY }}
@@ -276,6 +282,65 @@ export default function ConciergePage() {
             </>
           )}
         </>
+      )}
+
+      {showConsentDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-consent-title"
+          data-testid="share-consent-dialog"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck size={18} className="text-gray-500" />
+              <h2 id="share-consent-title" className="font-bold text-sm text-gray-900">
+                家族情報・お薬手帳を共有しますか？
+              </h2>
+            </div>
+            <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+              共有する場合、以下の事実データのみが今回相談する専門家に送信されます。診断や薦める薬の判断には使用されません。
+            </p>
+            <ul className="text-xs text-gray-700 bg-gray-50 rounded-xl p-3 mb-3 space-y-1 list-disc list-inside">
+              <li>家族の持病・アレルギー・服薬情報（登録済みの内容）</li>
+              <li>直近の購入履歴（最大50件・購入日・商品名・数量など）</li>
+            </ul>
+            <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+              共有しない場合でも予約は確定できます。共有はこの予約1件に対してのみ行われ、後から変更したい場合はサポートにご連絡ください。
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void finalizeBooking(false)}
+                disabled={submitting}
+                className="w-full py-3 rounded-xl text-sm font-semibold text-gray-800 border border-gray-300 disabled:opacity-50"
+                data-testid="share-decline-button"
+              >
+                共有しない（予約のみ確定）
+              </button>
+              <button
+                type="button"
+                onClick={() => void finalizeBooking(true)}
+                disabled={submitting}
+                className="w-full py-3 rounded-xl text-sm font-semibold text-gray-900 disabled:opacity-50"
+                style={{ background: PRIMARY }}
+                data-testid="share-accept-button"
+              >
+                共有する
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowConsentDialog(false)}
+                disabled={submitting}
+                className="w-full py-2 text-xs text-gray-400 underline disabled:opacity-50"
+                data-testid="share-cancel-button"
+              >
+                キャンセル（選択し直す）
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {bookings.length > 0 && !confirmed && (
